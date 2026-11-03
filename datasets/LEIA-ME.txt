@@ -1,0 +1,11 @@
+Baixe os 7 datasets aqui e mantenha os nomes originais:
+
+  dataset1.txt ... dataset7.txt
+
+https://bucket-projeto-trainee.s3.sa-east-1.amazonaws.com/dataset1.txt
+https://bucket-projeto-trainee.s3.sa-east-1.amazonaws.com/dataset2.txt
+https://bucket-projeto-trainee.s3.sa-east-1.amazonaws.com/dataset3.txt
+https://bucket-projeto-trainee.s3.sa-east-1.amazonaws.com/dataset4.txt
+https://bucket-projeto-trainee.s3.sa-east-1.amazonaws.com/dataset5.txt
+https://bucket-projeto-trainee.s3.sa-east-1.amazonaws.com/dataset6.txt
+https://bucket-projeto-trainee.s3.sa-east-1.amazonaws.com/dataset7.txt

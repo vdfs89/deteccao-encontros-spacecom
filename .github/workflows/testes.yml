@@ -1,0 +1,40 @@
+name: testes
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Compilar
+        run: npx tsc -p .
+
+      - name: Testes
+        run: npm run teste
+
+      # Os datasets nao ficam no repositorio. Os dois de teste sao pequenos,
+      # entao baixo direto do bucket para conferir contra os gabaritos.
+      - name: Baixar datasets de teste
+        run: |
+          for i in 1 2; do
+            curl -fsSL -o datasets/dataset$i.txt https://bucket-projeto-trainee.s3.sa-east-1.amazonaws.com/dataset$i.txt
+          done
+
+      - name: Conferir contra os gabaritos
+        run: |
+          npm run validar -- datasets/dataset1.txt gabarito/respostas1.json
+          npm run validar -- datasets/dataset2.txt gabarito/respostas2.json
+
+      - name: Motor, referencia e paralelo dao o mesmo resultado
+        run: npm run comparar -- datasets/dataset1.txt datasets/dataset2.txt

@@ -18,15 +18,21 @@ Precisa de Node 18 ou mais novo.
 npm install
 
 # testes (não precisam dos datasets)
-npx tsx src/teste.ts
+npm run teste
 
 # conferir contra os gabaritos que vieram no e-mail
 npm run validar -- datasets/dataset1.txt gabarito/respostas1.json
 npm run validar -- datasets/dataset2.txt gabarito/respostas2.json
 
-# gerar os 7 JSONs em output/
+# compila e gera os 7 JSONs em output/
 npm run run:all
 ```
+
+O `run:all` compila com `tsc` e roda com `node` puro, sem o `tsx`. Assim não
+entra no tempo o custo de compilar TypeScript na hora.
+
+Os testes também rodam no GitHub Actions a cada push
+(`.github/workflows/testes.yml`).
 
 Os datasets não vão no zip porque somam mais de 1 GB. Basta colocar
 `dataset1.txt` até `dataset7.txt` na pasta `datasets/` (os links estão em
@@ -36,17 +42,21 @@ Os datasets não vão no zip porque somam mais de 1 GB. Basta colocar
 
 | Dataset | Linhas | Encontros (gen / fac / prot) | Tempo |
 |---|---:|---|---:|
-| 1 | 5.000 | 4 (2 / 1 / 1) | 15 ms |
-| 2 | 25.000 | 6 (3 / 2 / 1) | 28 ms |
-| 3 | 100.000 | 10 (5 / 3 / 2) | 62 ms |
-| 4 | 400.020 | 15 (7 / 5 / 3) | 203 ms |
-| 5 | 1.000.000 | 21 (10 / 7 / 4) | 512 ms |
-| 6 | 8.000.000 | 27 (12 / 9 / 6) | 4,1 s |
-| 7 | 12.000.000 | 35 (15 / 12 / 8) | 6,3 s |
+| 1 | 5.000 | 4 (2 / 1 / 1) | 18 ms |
+| 2 | 25.000 | 6 (3 / 2 / 1) | 25 ms |
+| 3 | 100.000 | 10 (5 / 3 / 2) | 56 ms |
+| 4 | 400.020 | 15 (7 / 5 / 3) | 172 ms |
+| 5 | 1.000.000 | 21 (10 / 7 / 4) | 283 ms |
+| 6 | 8.000.000 | 27 (12 / 9 / 6) | 810 ms |
+| 7 | 12.000.000 | 35 (15 / 12 / 8) | 1,2 s |
 
-Medido na minha máquina (Windows 10, Node 22). O tempo conta leitura do
-arquivo, parse e detecção, só não conta a escrita do JSON. Os datasets 1 e 2
-batem 100% com os gabaritos, inclusive no valor da distância.
+Medido na minha máquina (Windows 10, Node 22, 6 núcleos). O tempo conta
+leitura do arquivo, parse e detecção, só não conta a escrita do JSON. Os
+datasets 1 e 2 batem 100% com os gabaritos, inclusive no valor da distância.
+
+Para ter uma ideia da evolução, no dataset7: a primeira versão não conseguia
+nem abrir o arquivo, a versão em streaming levava 6,3 s e a versão com threads
+leva 1,2 s.
 
 ## Como funciona
 
@@ -119,8 +129,31 @@ são adjacentes e nunca são comparados. Na versão com grade eu resolvi isso
 dimensionando a célula uma vez só, pela maior latitude do dataset. Na
 varredura, esse problema nem existe.
 
+Para ordenar, uso insertion sort em vez do `Array.sort`. Com 40 a 120 pontos
+por timestamp, ele ficou uns 15% mais rápido no total, porque evita chamar uma
+função de comparação a cada passo.
+
 Mantive o `deteccao.ts` como referência porque é mais fácil de ler e de
 conferir. O `src/comparar.ts` roda os dois e compara o resultado.
+
+### Threads
+
+Mesmo em streaming, o dataset7 levava 6 s usando um núcleo só. O
+`src/paralelo.ts` divide o arquivo em um pedaço por núcleo e processa cada
+pedaço num `worker_thread`.
+
+O cuidado é onde cortar. Se um corte cair no meio de um timestamp, metade das
+posições daquele instante vai para uma thread e metade para outra, e os
+encontros entre elas se perdem. Por isso cada corte é empurrado para a frente
+até a primeira linha em que o timestamp muda. Depois disso os pedaços são
+independentes: cada thread roda o mesmo `motor.ts` e no fim eu só junto as
+listas na ordem.
+
+No fim ainda confiro que nenhum timestamp apareceu em dois pedaços. Se
+aparecer, o arquivo não estava ordenado e o programa para com erro.
+
+Arquivos menores que 32 MB rodam numa thread só. Abrir um worker custa perto de
+100 ms, e no dataset4 (21 MB) testei e não compensou.
 
 ## Como eu sei que está certo
 
@@ -129,6 +162,10 @@ conferir. O `src/comparar.ts` roda os dois e compara o resultado.
   mesmo resultado nos datasets 1 a 6, até a última casa da distância. O
   dataset7 não cabe na referência, então cortei ele em duas metades num ponto
   em que o timestamp muda e comparei cada metade.
+- O mesmo `comparar.ts` roda a versão com threads forçando 6 pedaços até nos
+  arquivos pequenos, e confere que o resultado é igual ao da versão de uma
+  thread, na mesma ordem.
+- Os 7 JSONs gerados com threads são idênticos aos gerados sem threads.
 - O `src/teste.ts` tem um teste com dados aleatórios: 2.880 pontos agrupados
   perto uns dos outros pelo Brasil todo, gerando quase mil encontros. Comparo a
   grade e o motor contra uma força bruta que testa todos os pares. Esse é o
@@ -140,14 +177,33 @@ conferir. O `src/comparar.ts` roda os dois e compara o resultado.
 ## Arquivos
 
 ```
-src/motor.ts      leitura em streaming e detecção (usado para gerar os outputs)
+src/motor.ts      leitura em streaming e detecção
+src/paralelo.ts   divide o arquivo e roda o motor em várias threads
 src/deteccao.ts   versão de referência em memória, com grade espacial
 src/index.ts      linha de comando, grava output/respostasN.json
 src/validar.ts    compara com os gabaritos
-src/comparar.ts   compara o motor com a referência
+src/comparar.ts   compara motor, referência e versão com threads
 src/teste.ts      testes
 output/           os 7 JSONs gerados
 ```
+
+## O que eu faria depois
+
+Coisas que ficaram fora do escopo do desafio, mas que eu faria num sistema de
+verdade:
+
+- **Juntar encontros seguidos.** Hoje, se duas pessoas ficam juntas por 2
+  minutos, saem 24 registros, um por timestamp. Para quem vai agir em cima disso,
+  faz mais sentido um evento só, com início, fim, duração e menor distância.
+- **Receber os dados em tempo real.** Em produção as posições chegam aos poucos,
+  não num arquivo. O motor já processa um timestamp por vez, então daria para
+  ligar ele numa fila e alertar um encontro protetivo segundos depois de
+  acontecer.
+- **Aceitar arquivo fora de ordem.** Hoje eu dou erro. Daria para ordenar antes
+  por timestamp, em disco, sem carregar tudo na memória.
+- **Alerta antes do encontro.** Para medida protetiva, o mais útil é avisar
+  quando o agressor está chegando perto (500 m, por exemplo), e não só quando já
+  está a 20 m.
 
 ## Sobre o uso de IA
 
@@ -156,8 +212,7 @@ principalmente para revisar o código: a primeira versão tinha três erros (as
 aspas no timestamp, a medida protetiva invertida e a grade calculada por ponto),
 e foi nessa revisão que eles apareceram. Também foi conversando com ele que
 percebi o problema de tamanho do dataset7 e decidi fazer a leitura em
-streaming.
+streaming, e depois a divisão em threads.
 
 Não aceitei nenhuma otimização sem comparar com a força bruta ou com a versão
 de referência. Esses testes existem justamente para isso.
-# deteccao-encontros-spacecom

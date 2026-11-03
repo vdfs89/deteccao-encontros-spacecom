@@ -1,0 +1,6 @@
+Baixe os 2 gabaritos aqui e mantenha os nomes originais:
+
+  respostas1.json, respostas2.json
+
+https://bucket-projeto-trainee.s3.sa-east-1.amazonaws.com/respostas1.json
+https://bucket-projeto-trainee.s3.sa-east-1.amazonaws.com/respostas2.json

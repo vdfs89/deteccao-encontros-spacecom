@@ -1,0 +1,19 @@
+{
+  "name": "deteccao-encontros-spacecom",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deteccao de encontros por geolocalizacao - Desafio Trainee Tech Spacecom 2027",
+  "scripts": {
+    "build": "tsc",
+    "run:all": "tsc && node dist/index.js datasets/dataset1.txt datasets/dataset2.txt datasets/dataset3.txt datasets/dataset4.txt datasets/dataset5.txt datasets/dataset6.txt datasets/dataset7.txt",
+    "teste": "tsx src/teste.ts",
+    "validar": "tsx src/validar.ts",
+    "comparar": "tsx src/comparar.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}
